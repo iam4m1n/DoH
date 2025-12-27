@@ -1,0 +1,76 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Python packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+nosetests.xml
+coverage.xml
+
+# =========================
+# Django
+# =========================
+# Django migrations (keep __init__.py)
+**/migrations/
+!**/migrations/__init__.py
+
+# Django database
+db.sqlite3
+db.sqlite3-journal
+
+# Media & static files (user-generated)
+media/
+staticfiles/
+
+# Django secrets & environment
+.env
+*.env
+.env.*
+local_settings.py
+
+# Logs
+*.log
+
+# =========================
+# IDEs & Editors
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*.bak
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Misc
+# =========================
+.cache/
+.ipynb_checkpoints/
