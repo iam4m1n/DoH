@@ -1,5 +1,5 @@
 import socket
-from resolver import resolve_dns
+from .resolver import resolve_dns
 
 DNS_PORT = 8053
 
