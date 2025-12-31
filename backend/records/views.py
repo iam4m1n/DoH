@@ -19,6 +19,10 @@ from .models import DNSRecord
 from .serializers import DNSRecordSerializer
 from .renderers import DNSJsonRenderer, DNSMessageRenderer
 from .forms import DNSRecordForm, DNSQueryForm, LoginForm, UserCreateForm
+from dns_core.logger import (
+    log_api_request, log_admin_action, log_web_action, get_client_ip
+)
+import time
 
 @api_view(['GET', 'POST'])
 @renderer_classes([DNSJsonRenderer, DNSMessageRenderer])
@@ -91,24 +95,41 @@ def doh_query(request):
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
 def add_record(request):
+    start_time = time.time()
+    client_ip = get_client_ip(request)
     serializer = DNSRecordSerializer(data=request.data)
     if serializer.is_valid():
         # Mark admin-added records as manual (they don't expire)
         record = serializer.save(is_manual=True)
+        response_time = int((time.time() - start_time) * 1000)
+        log_api_request('POST', '/api/v1/admin/record', request.user, 200, response_time, client_ip)
+        log_admin_action('ADD_RECORD', request.user, 'DNSRecord', record.id, 
+                        f"domain={record.domain}, type={record.record_type}, value={record.value}")
         return Response({"status": "ok", "id": record.id})
+    response_time = int((time.time() - start_time) * 1000)
+    log_api_request('POST', '/api/v1/admin/record', request.user, 400, response_time, client_ip)
     return Response(serializer.errors, status=400)
 
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def list_records(request):
+    start_time = time.time()
+    client_ip = get_client_ip(request)
     records = DNSRecord.objects.all()
     serializer = DNSRecordSerializer(records, many=True)
+    response_time = int((time.time() - start_time) * 1000)
+    log_api_request('GET', '/api/v1/admin/records', request.user, 200, response_time, client_ip)
     return Response(serializer.data)
 
 @api_view(['DELETE'])
 @permission_classes([IsAdminUser])
 def delete_record(request, domain):
+    start_time = time.time()
+    client_ip = get_client_ip(request)
     DNSRecord.objects.filter(domain=domain).delete()
+    response_time = int((time.time() - start_time) * 1000)
+    log_api_request('DELETE', f'/api/v1/admin/record/{domain}', request.user, 200, response_time, client_ip)
+    log_admin_action('DELETE_RECORD', request.user, 'DNSRecord', None, f"domain={domain}")
     return Response({"status": "deleted"})
 
 # ==================== Web UI Views ====================
@@ -119,6 +140,7 @@ def is_admin(user):
 
 def login_view(request):
     """User login view"""
+    client_ip = get_client_ip(request)
     if request.user.is_authenticated:
         return redirect('dashboard')
     
@@ -132,10 +154,12 @@ def login_view(request):
             if user is not None:
                 login(request, user)
                 messages.success(request, f'Welcome, {user.username}!')
+                log_web_action('LOGIN', user, f'username={username}', client_ip)
                 next_url = request.GET.get('next', 'dashboard')
                 return redirect(next_url)
             else:
                 messages.error(request, 'Invalid username or password.')
+                log_web_action('LOGIN_FAILED', None, f'username={username}', client_ip)
     else:
         form = LoginForm()
     
@@ -143,8 +167,11 @@ def login_view(request):
 
 def logout_view(request):
     """User logout view"""
+    client_ip = get_client_ip(request)
+    user = request.user
     logout(request)
     messages.info(request, 'You have been logged out.')
+    log_web_action('LOGOUT', user, None, client_ip)
     return redirect('login')
 
 @login_required
@@ -176,6 +203,7 @@ def dashboard(request):
 @login_required
 def query_dns(request):
     """DNS query interface"""
+    client_ip = get_client_ip(request)
     result = None
     error = None
     
@@ -190,9 +218,11 @@ def query_dns(request):
                 domain += '.'
             
             try:
-                result = resolve_dns_json(domain, record_type)
+                result = resolve_dns_json(domain, record_type, client_ip=client_ip)
+                log_web_action('DNS_QUERY', request.user, f'domain={domain}, type={record_type}', client_ip)
             except Exception as e:
                 error = str(e)
+                log_web_action('DNS_QUERY_ERROR', request.user, f'domain={domain}, error={error}', client_ip)
     else:
         form = DNSQueryForm()
     
@@ -244,6 +274,7 @@ def records_list(request):
 @user_passes_test(is_admin)
 def add_record_view(request):
     """Add DNS record (admin only)"""
+    client_ip = get_client_ip(request)
     if request.method == 'POST':
         form = DNSRecordForm(request.POST)
         if form.is_valid():
@@ -251,6 +282,9 @@ def add_record_view(request):
             record.is_manual = True
             record.save()
             messages.success(request, f'Record {record.domain} ({record.record_type}) added successfully!')
+            log_admin_action('ADD_RECORD', request.user, 'DNSRecord', record.id, 
+                            f"domain={record.domain}, type={record.record_type}, value={record.value}", 
+                            client_ip=client_ip)
             return redirect('records_list')
     else:
         form = DNSRecordForm()
@@ -265,6 +299,7 @@ def add_record_view(request):
 @user_passes_test(is_admin)
 def edit_record_view(request, record_id):
     """Edit DNS record (admin only)"""
+    client_ip = get_client_ip(request)
     record = get_object_or_404(DNSRecord, id=record_id)
     
     if request.method == 'POST':
@@ -272,6 +307,9 @@ def edit_record_view(request, record_id):
         if form.is_valid():
             form.save()
             messages.success(request, f'Record updated successfully!')
+            log_admin_action('EDIT_RECORD', request.user, 'DNSRecord', record.id, 
+                            f"domain={record.domain}, type={record.record_type}", 
+                            client_ip=client_ip)
             return redirect('records_list')
     else:
         form = DNSRecordForm(instance=record)
@@ -287,12 +325,15 @@ def edit_record_view(request, record_id):
 @user_passes_test(is_admin)
 def delete_record_view(request, record_id):
     """Delete DNS record (admin only)"""
+    client_ip = get_client_ip(request)
     record = get_object_or_404(DNSRecord, id=record_id)
     
     if request.method == 'POST':
         domain = record.domain
         record.delete()
         messages.success(request, f'Record {domain} deleted successfully!')
+        log_admin_action('DELETE_RECORD', request.user, 'DNSRecord', record_id, 
+                        f"domain={domain}", client_ip=client_ip)
         return redirect('records_list')
     
     context = {
@@ -322,6 +363,7 @@ def users_list(request):
 @user_passes_test(is_admin)
 def add_user_view(request):
     """Add normal user (admin only)"""
+    client_ip = get_client_ip(request)
     if request.method == 'POST':
         form = UserCreateForm(request.POST)
         if form.is_valid():
@@ -331,6 +373,8 @@ def add_user_view(request):
             user.is_superuser = False
             user.save()
             messages.success(request, f'User {user.username} created successfully!')
+            log_admin_action('ADD_USER', request.user, 'User', user.id, 
+                            f"username={user.username}", client_ip=client_ip)
             return redirect('users_list')
     else:
         form = UserCreateForm()
@@ -345,6 +389,7 @@ def add_user_view(request):
 @user_passes_test(is_admin)
 def delete_user_view(request, user_id):
     """Delete user (admin only)"""
+    client_ip = get_client_ip(request)
     user = get_object_or_404(User, id=user_id)
     
     # Prevent deleting yourself
@@ -356,6 +401,8 @@ def delete_user_view(request, user_id):
         username = user.username
         user.delete()
         messages.success(request, f'User {username} deleted successfully!')
+        log_admin_action('DELETE_USER', request.user, 'User', user_id, 
+                        f"username={username}", client_ip=client_ip)
         return redirect('users_list')
     
     context = {

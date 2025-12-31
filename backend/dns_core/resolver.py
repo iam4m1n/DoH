@@ -11,8 +11,9 @@ from .redis_cache import (
     cache_record,
     delete_cached_records
 )
+from .logger import log_dns_query
 
-def resolve_dns(data):
+def resolve_dns(data, client_ip=None, source='binary'):
     transaction_id = data[:2]
     offset = 12
     domain, offset = parse_qname(data, offset)
@@ -36,6 +37,7 @@ def resolve_dns(data):
     
     # Combine cached and manual records
     answers = []
+    from_cache = False
     for record in cached_records:
         answers.append({
             "type": record["record_type"],
@@ -43,6 +45,7 @@ def resolve_dns(data):
             "ttl": record["ttl"],  # Redis TTL is handled by Redis expiration
             "priority": record.get("priority"),
         })
+        from_cache = True
     
     for record in manual_records:
         answers.append({
@@ -51,18 +54,28 @@ def resolve_dns(data):
             "ttl": record.ttl,
             "priority": record.priority,
         })
+        from_cache = True
     
     if answers:
-        return build_response(transaction_id, question_section, answers)
+        response = build_response(transaction_id, question_section, answers)
+        log_dns_query(domain, qtype_name, source=source, status='success', 
+                     answer_count=len(answers), from_cache=from_cache, client_ip=client_ip)
+        return response
     
     # Forward to upstream if no valid cached records
     response = forward_to_upstream(data)
     if response:
         # Cache the upstream response
         cache_upstream_response(domain, qtype_name, response)
+        parsed = parse_dns_response(response)
+        log_dns_query(domain, qtype_name, source=source, status='success', 
+                     answer_count=len(parsed.get('Answer', [])), 
+                     from_cache=False, client_ip=client_ip)
         return response
 
     # NXDOMAIN if nothing found
+    log_dns_query(domain, qtype_name, source=source, status='nxdomain', 
+                 answer_count=0, from_cache=False, client_ip=client_ip)
     return build_response(transaction_id, question_section, [], rcode=3)
 
 
@@ -122,7 +135,7 @@ def cache_upstream_response(domain, qtype_name, response_data):
         # Silently fail caching to not break DNS resolution
         pass
 
-def resolve_dns_json(domain, qtype_name):
+def resolve_dns_json(domain, qtype_name, client_ip=None):
     # Check local records first
     if not domain.endswith("."):
         domain = domain + "."
@@ -143,6 +156,7 @@ def resolve_dns_json(domain, qtype_name):
     
     # Combine cached and manual records
     answers = []
+    from_cache = False
     for record in cached_records:
         answers.append({
             "name": domain,
@@ -150,6 +164,7 @@ def resolve_dns_json(domain, qtype_name):
             "ttl": record["ttl"],
             "data": record["value"],
         })
+        from_cache = True
     
     for record in manual_records:
         answers.append({
@@ -158,13 +173,17 @@ def resolve_dns_json(domain, qtype_name):
             "ttl": record.ttl,
             "data": record.value,
         })
+        from_cache = True
     
     if answers:
-        return {
+        result = {
             "Status": 0,
             "Question": [{"name": domain, "type": qtype_name}],
             "Answer": answers,
         }
+        log_dns_query(domain, qtype_name, source='doh-json', status='success', 
+                     answer_count=len(answers), from_cache=from_cache, client_ip=client_ip)
+        return result
     
     # Forward to upstream if no valid cached records
     _, query = build_query(domain, qtype_name)
@@ -172,7 +191,14 @@ def resolve_dns_json(domain, qtype_name):
     if response:
         # Cache the upstream response
         cache_upstream_response(domain, qtype_name, response)
-        return parse_dns_response(response)
+        result = parse_dns_response(response)
+        log_dns_query(domain, qtype_name, source='doh-json', status='success', 
+                     answer_count=len(result.get('Answer', [])), 
+                     from_cache=False, client_ip=client_ip)
+        return result
+    
+    log_dns_query(domain, qtype_name, source='doh-json', status='nxdomain', 
+                 answer_count=0, from_cache=False, client_ip=client_ip)
     return {
         "Status": 3,
         "Question": [{"name": domain, "type": qtype_name}],

@@ -1,6 +1,7 @@
 import socket
 import struct
 from .resolver import resolve_dns
+from .logger import log_system_event
 
 DNS_PORT = 8053
 
@@ -10,6 +11,7 @@ def start_tcp_server():
     sock.bind(("0.0.0.0", DNS_PORT))
     sock.listen(5)
     print(f"TCP DNS server listening on port {DNS_PORT}")
+    log_system_event('server_start', f'TCP DNS server started on port {DNS_PORT}')
 
     while True:
         conn, addr = sock.accept()
@@ -25,7 +27,8 @@ def start_tcp_server():
                 if not chunk:
                     break
                 data += chunk
-            response = resolve_dns(data)
+            client_ip = addr[0]
+            response = resolve_dns(data, client_ip=client_ip, source='tcp')
             conn.sendall(struct.pack("!H", len(response)) + response)
         finally:
             conn.close()
