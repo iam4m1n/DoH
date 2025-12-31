@@ -1,0 +1,90 @@
+{% extends 'records/base.html' %}
+
+{% block title %}Query DNS - DNS Management{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 class="card-header">🔍 DNS Query</h2>
+    
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="{{ form.domain.id_for_label }}">Domain Name</label>
+            {{ form.domain }}
+            <small style="color: #666; display: block; margin-top: 0.5rem;">
+                Enter a domain name (e.g., google.com, example.com)
+            </small>
+        </div>
+        
+        <div class="form-group">
+            <label for="{{ form.record_type.id_for_label }}">Record Type</label>
+            {{ form.record_type }}
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Query</button>
+    </form>
+</div>
+
+{% if error %}
+<div class="card">
+    <div class="alert alert-error">
+        <strong>Error:</strong> {{ error }}
+    </div>
+</div>
+{% endif %}
+
+{% if result %}
+<div class="card">
+    <h2 class="card-header">📋 Query Results</h2>
+    
+    <div style="margin-bottom: 1rem;">
+        <strong>Status:</strong> 
+        {% if result.Status == 0 %}
+            <span style="color: #28a745;">✓ Success</span>
+        {% else %}
+            <span style="color: #dc3545;">✗ Error ({{ result.Status }})</span>
+        {% endif %}
+    </div>
+    
+    {% if result.Question %}
+    <div style="margin-bottom: 1rem;">
+        <strong>Question:</strong>
+        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+            {% for q in result.Question %}
+            <li>{{ q.name }} ({{ q.type }})</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    
+    {% if result.Answer %}
+    <div>
+        <strong>Answer{{ result.Answer|length|pluralize }}:</strong>
+        <table style="margin-top: 1rem;">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>TTL</th>
+                    <th>Data</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for answer in result.Answer %}
+                <tr>
+                    <td>{{ answer.name }}</td>
+                    <td><span class="badge-record">{{ answer.type }}</span></td>
+                    <td>{{ answer.ttl }}s</td>
+                    <td>{{ answer.data }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: #666;">No answers found for this query.</p>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}
+

@@ -1,16 +1,23 @@
 import base64
 import binascii
 import json
-from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth import login, logout
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib import messages
+from django.http import HttpResponse, JsonResponse, HttpResponseRedirect
+from django.urls import reverse
+from django.db.models import Q, Count
 from rest_framework.decorators import api_view, permission_classes, renderer_classes
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from dns_core.resolver import resolve_dns, resolve_dns_json
-from dns_core.packet import TYPE_CODE
+from dns_core.packet import TYPE_CODE, TYPE_MAP
 
 from .models import DNSRecord
 from .serializers import DNSRecordSerializer
 from .renderers import DNSJsonRenderer, DNSMessageRenderer
+from .forms import DNSRecordForm, DNSQueryForm, LoginForm
 
 @api_view(['GET', 'POST'])
 @renderer_classes([DNSJsonRenderer, DNSMessageRenderer])
@@ -102,3 +109,193 @@ def list_records(request):
 def delete_record(request, domain):
     DNSRecord.objects.filter(domain=domain).delete()
     return Response({"status": "deleted"})
+
+# ==================== Web UI Views ====================
+
+def is_admin(user):
+    """Check if user is admin (staff)"""
+    return user.is_authenticated and user.is_staff
+
+def login_view(request):
+    """User login view"""
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        form = LoginForm(request.POST)
+        if form.is_valid():
+            from django.contrib.auth import authenticate
+            username = form.cleaned_data['username']
+            password = form.cleaned_data['password']
+            user = authenticate(request, username=username, password=password)
+            if user is not None:
+                login(request, user)
+                messages.success(request, f'Welcome, {user.username}!')
+                next_url = request.GET.get('next', 'dashboard')
+                return redirect(next_url)
+            else:
+                messages.error(request, 'Invalid username or password.')
+    else:
+        form = LoginForm()
+    
+    return render(request, 'records/login.html', {'form': form})
+
+def logout_view(request):
+    """User logout view"""
+    logout(request)
+    messages.info(request, 'You have been logged out.')
+    return redirect('login')
+
+@login_required
+def dashboard(request):
+    """Main dashboard view"""
+    # Get statistics
+    total_records = DNSRecord.objects.count()
+    manual_records = DNSRecord.objects.filter(is_manual=True).count()
+    cached_records = DNSRecord.objects.filter(is_manual=False).count()
+    
+    # Get recent records
+    recent_records = DNSRecord.objects.order_by('-cached_at')[:10]
+    
+    # Record type distribution
+    record_types = DNSRecord.objects.values('record_type').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    context = {
+        'total_records': total_records,
+        'manual_records': manual_records,
+        'cached_records': cached_records,
+        'recent_records': recent_records,
+        'record_types': record_types,
+        'is_admin': request.user.is_staff,
+    }
+    return render(request, 'records/dashboard.html', context)
+
+@login_required
+def query_dns(request):
+    """DNS query interface"""
+    result = None
+    error = None
+    
+    if request.method == 'POST':
+        form = DNSQueryForm(request.POST)
+        if form.is_valid():
+            domain = form.cleaned_data['domain']
+            record_type = form.cleaned_data['record_type']
+            
+            # Ensure domain ends with dot
+            if not domain.endswith('.'):
+                domain += '.'
+            
+            try:
+                result = resolve_dns_json(domain, record_type)
+            except Exception as e:
+                error = str(e)
+    else:
+        form = DNSQueryForm()
+    
+    context = {
+        'form': form,
+        'result': result,
+        'error': error,
+        'is_admin': request.user.is_staff,
+    }
+    return render(request, 'records/query.html', context)
+
+@login_required
+def records_list(request):
+    """List all DNS records (read-only for normal users)"""
+    search_query = request.GET.get('search', '')
+    record_type_filter = request.GET.get('type', '')
+    
+    records = DNSRecord.objects.all()
+    
+    # Apply filters
+    if search_query:
+        records = records.filter(
+            Q(domain__icontains=search_query) |
+            Q(value__icontains=search_query)
+        )
+    
+    if record_type_filter:
+        records = records.filter(record_type=record_type_filter)
+    
+    # Separate manual and cached records
+    manual_records = records.filter(is_manual=True).order_by('-cached_at')
+    cached_records = records.filter(is_manual=False).order_by('-cached_at')
+    
+    # Get available record types for filter
+    available_types = DNSRecord.objects.values_list('record_type', flat=True).distinct()
+    
+    context = {
+        'manual_records': manual_records,
+        'cached_records': cached_records,
+        'search_query': search_query,
+        'record_type_filter': record_type_filter,
+        'available_types': available_types,
+        'is_admin': request.user.is_staff,
+        'record_types': TYPE_MAP.values(),
+    }
+    return render(request, 'records/records_list.html', context)
+
+@login_required
+@user_passes_test(is_admin)
+def add_record_view(request):
+    """Add DNS record (admin only)"""
+    if request.method == 'POST':
+        form = DNSRecordForm(request.POST)
+        if form.is_valid():
+            record = form.save(commit=False)
+            record.is_manual = True
+            record.save()
+            messages.success(request, f'Record {record.domain} ({record.record_type}) added successfully!')
+            return redirect('records_list')
+    else:
+        form = DNSRecordForm()
+    
+    context = {
+        'form': form,
+        'is_admin': True,
+    }
+    return render(request, 'records/add_record.html', context)
+
+@login_required
+@user_passes_test(is_admin)
+def edit_record_view(request, record_id):
+    """Edit DNS record (admin only)"""
+    record = get_object_or_404(DNSRecord, id=record_id)
+    
+    if request.method == 'POST':
+        form = DNSRecordForm(request.POST, instance=record)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Record updated successfully!')
+            return redirect('records_list')
+    else:
+        form = DNSRecordForm(instance=record)
+    
+    context = {
+        'form': form,
+        'record': record,
+        'is_admin': True,
+    }
+    return render(request, 'records/edit_record.html', context)
+
+@login_required
+@user_passes_test(is_admin)
+def delete_record_view(request, record_id):
+    """Delete DNS record (admin only)"""
+    record = get_object_or_404(DNSRecord, id=record_id)
+    
+    if request.method == 'POST':
+        domain = record.domain
+        record.delete()
+        messages.success(request, f'Record {domain} deleted successfully!')
+        return redirect('records_list')
+    
+    context = {
+        'record': record,
+        'is_admin': True,
+    }
+    return render(request, 'records/delete_record.html', context)

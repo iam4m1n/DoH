@@ -62,6 +62,10 @@ TEMPLATES = [
     },
 ]
 
+# Static files (CSS, JavaScript, Images)
+STATIC_URL = 'static/'
+STATICFILES_DIRS = []
+
 WSGI_APPLICATION = 'backend.wsgi.application'
 
 

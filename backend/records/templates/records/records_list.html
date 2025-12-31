@@ -1,0 +1,107 @@
+{% extends 'records/base.html' %}
+
+{% block title %}DNS Records - DNS Management{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 class="card-header">📋 DNS Records</h2>
+    
+    <form method="get" class="search-bar">
+        <input type="text" name="search" class="form-control" placeholder="Search domain or value..." value="{{ search_query }}">
+        <select name="type" class="form-control" style="max-width: 200px;">
+            <option value="">All Types</option>
+            {% for rtype in available_types %}
+            <option value="{{ rtype }}" {% if record_type_filter == rtype %}selected{% endif %}>{{ rtype }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-primary">Search</button>
+        {% if search_query or record_type_filter %}
+        <a href="{% url 'records_list' %}" class="btn btn-secondary">Clear</a>
+        {% endif %}
+    </form>
+</div>
+
+{% if manual_records %}
+<div class="card">
+    <h2 class="card-header">📝 Manual Records (Admin Added)</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Domain</th>
+                <th>Type</th>
+                <th>Value</th>
+                <th>TTL</th>
+                <th>Priority</th>
+                <th>Created</th>
+                {% if is_admin %}
+                <th>Actions</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for record in manual_records %}
+            <tr>
+                <td>{{ record.domain }}</td>
+                <td><span class="badge-record badge-manual">{{ record.record_type }}</span></td>
+                <td>{{ record.value }}</td>
+                <td>{{ record.ttl }}s</td>
+                <td>{{ record.priority|default:"-" }}</td>
+                <td>{{ record.cached_at|date:"Y-m-d H:i" }}</td>
+                {% if is_admin %}
+                <td>
+                    <a href="{% url 'edit_record' record.id %}" class="btn btn-secondary" style="padding: 0.25rem 0.75rem; font-size: 0.85rem;">Edit</a>
+                    <a href="{% url 'delete_record' record.id %}" class="btn btn-danger" style="padding: 0.25rem 0.75rem; font-size: 0.85rem;">Delete</a>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if cached_records %}
+<div class="card">
+    <h2 class="card-header">💾 Cached Records (Auto-cached from queries)</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Domain</th>
+                <th>Type</th>
+                <th>Value</th>
+                <th>TTL</th>
+                <th>Priority</th>
+                <th>Cached At</th>
+                {% if is_admin %}
+                <th>Actions</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for record in cached_records %}
+            <tr>
+                <td>{{ record.domain }}</td>
+                <td><span class="badge-record badge-cached">{{ record.record_type }}</span></td>
+                <td>{{ record.value }}</td>
+                <td>{{ record.ttl }}s</td>
+                <td>{{ record.priority|default:"-" }}</td>
+                <td>{{ record.cached_at|date:"Y-m-d H:i" }}</td>
+                {% if is_admin %}
+                <td>
+                    <a href="{% url 'delete_record' record.id %}" class="btn btn-danger" style="padding: 0.25rem 0.75rem; font-size: 0.85rem;">Delete</a>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if not manual_records and not cached_records %}
+<div class="card">
+    <p>No records found. {% if is_admin %}<a href="{% url 'add_record_view' %}">Add a record</a> or {% endif %}<a href="{% url 'query_dns' %}">query a domain</a> to get started.</p>
+</div>
+{% endif %}
+{% endblock %}
+

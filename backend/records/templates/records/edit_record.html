@@ -1,0 +1,64 @@
+{% extends 'records/base.html' %}
+
+{% block title %}Edit DNS Record - DNS Management{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 class="card-header">✏️ Edit DNS Record</h2>
+    
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="{{ form.domain.id_for_label }}">Domain Name *</label>
+            {{ form.domain }}
+            {% if form.domain.errors %}
+            <div style="color: #dc3545; margin-top: 0.5rem;">{{ form.domain.errors }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="form-group">
+            <label for="{{ form.record_type.id_for_label }}">Record Type *</label>
+            {{ form.record_type }}
+            {% if form.record_type.errors %}
+            <div style="color: #dc3545; margin-top: 0.5rem;">{{ form.record_type.errors }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="form-group">
+            <label for="{{ form.value.id_for_label }}">Value *</label>
+            {{ form.value }}
+            {% if form.value.errors %}
+            <div style="color: #dc3545; margin-top: 0.5rem;">{{ form.value.errors }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="form-group">
+            <label for="{{ form.ttl.id_for_label }}">TTL (Time To Live) *</label>
+            {{ form.ttl }}
+            {% if form.ttl.errors %}
+            <div style="color: #dc3545; margin-top: 0.5rem;">{{ form.ttl.errors }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="form-group">
+            <label for="{{ form.priority.id_for_label }}">Priority (for MX records)</label>
+            {{ form.priority }}
+            {% if form.priority.errors %}
+            <div style="color: #dc3545; margin-top: 0.5rem;">{{ form.priority.errors }}</div>
+            {% endif %}
+        </div>
+        
+        {% if form.non_field_errors %}
+        <div class="alert alert-error">
+            {{ form.non_field_errors }}
+        </div>
+        {% endif %}
+        
+        <div style="display: flex; gap: 1rem;">
+            <button type="submit" class="btn btn-primary">Update Record</button>
+            <a href="{% url 'records_list' %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+

@@ -1,0 +1,72 @@
+{% extends 'records/base.html' %}
+
+{% block title %}Dashboard - DNS Management{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 class="card-header">📊 Dashboard Overview</h2>
+    
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h3>{{ total_records }}</h3>
+            <p>Total Records</p>
+        </div>
+        <div class="stat-card">
+            <h3>{{ manual_records }}</h3>
+            <p>Manual Records</p>
+        </div>
+        <div class="stat-card">
+            <h3>{{ cached_records }}</h3>
+            <p>Cached Records</p>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2 class="card-header">📋 Recent Records</h2>
+    {% if recent_records %}
+    <table>
+        <thead>
+            <tr>
+                <th>Domain</th>
+                <th>Type</th>
+                <th>Value</th>
+                <th>TTL</th>
+                <th>Source</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for record in recent_records %}
+            <tr>
+                <td>{{ record.domain }}</td>
+                <td><span class="badge-record">{{ record.record_type }}</span></td>
+                <td>{{ record.value }}</td>
+                <td>{{ record.ttl }}s</td>
+                <td>
+                    {% if record.is_manual %}
+                    <span class="badge-record badge-manual">Manual</span>
+                    {% else %}
+                    <span class="badge-record badge-cached">Cached</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No records found. Start by querying a domain or adding a record.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2 class="card-header">🚀 Quick Actions</h2>
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <a href="{% url 'query_dns' %}" class="btn btn-primary">Query DNS</a>
+        <a href="{% url 'records_list' %}" class="btn btn-primary">View All Records</a>
+        {% if is_admin %}
+        <a href="{% url 'add_record_view' %}" class="btn btn-primary">Add New Record</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
