@@ -2,6 +2,10 @@
 
 A DNS server implementation with DNS over HTTPS (DoH) support, local record management, and upstream forwarding capabilities.
 
+## Implementation Brief
+
+This project delivers a DNS server (UDP/TCP), a DoH HTTPS API, record management with authentication, caching, logging, and a Web UI for admin and normal users.
+
 ## Features
 
 ### ✅ Implemented Features
@@ -35,6 +39,16 @@ A DNS server implementation with DNS over HTTPS (DoH) support, local record mana
    - TXT
    - PTR
    - NS
+
+6. **Security and Management (Bonus)**
+   - HTTPS (self-signed cert for local use)
+   - Admin authentication (Django users, hashed passwords)
+   - Admin-only management routes
+   - Web UI for records/users and queries
+
+7. **Caching and Logging (Bonus)**
+   - Redis cache for upstream responses
+   - File logs for DNS, API, admin actions, and system events
 
 ## Installation
 
@@ -176,6 +190,91 @@ backend/
 └── backend/           # Django settings
 ```
 
+## Project Requirements Coverage (docs/project.pdf)
+
+Required:
+- UDP/TCP DNS on port 8053 with standard DNS responses.
+- DoH endpoint `/api/v1/dns-query` supporting GET/POST and JSON/binary formats.
+- Record storage with domain/type/value/TTL/priority (MX).
+- Upstream forwarding (Google/Cloudflare) when local record is missing.
+- Secure admin management routes (add/delete/list records).
+
+Bonus:
+- HTTPS support (self-signed cert).
+- Admin authentication with hashed passwords and role checks.
+- Support for TXT/PTR/NS records.
+- Caching (Redis) and logging.
+- Web UI for records, users, and DNS queries.
+
+## Testing Checklist (HTTPS Only)
+
+### 1) Start Everything
+```bash
+cd backend
+python manage.py run_all
+```
+
+### 2) UDP/TCP DNS
+```bash
+dig @localhost -p 8053 example.com
+dig @localhost -p 8053 example.com +tcp
+```
+
+### 3) DoH JSON (GET/POST)
+```bash
+curl -k "https://localhost:8443/api/v1/dns-query?name=example.com&type=A" \
+  -H "Accept: application/dns-json"
+
+curl -k -X POST "https://localhost:8443/api/v1/dns-query" \
+  -H "Content-Type: application/dns-json" \
+  -d '{"name": "example.com", "type": "A"}'
+```
+
+### 4) DoH Binary (GET)
+```bash
+python - <<'PY'
+import base64
+from dns_core.packet import build_query
+_, q = build_query("example.com.", "A")
+print(base64.urlsafe_b64encode(q).decode("ascii").rstrip("="))
+PY
+```
+```bash
+curl -k "https://localhost:8443/api/v1/dns-query?dns=<paste-base64>" \
+  -H "Accept: application/dns-message"
+```
+
+### 5) Admin Record Management (HTTPS)
+```bash
+curl -k -X POST https://localhost:8443/api/v1/admin/record \
+  -H "Content-Type: application/json" \
+  -u admin:password \
+  -d '{"domain":"example.com.","record_type":"A","value":"192.168.1.1","ttl":3600}'
+
+curl -k https://localhost:8443/api/v1/admin/records -u admin:password
+
+curl -k -X DELETE https://localhost:8443/api/v1/admin/record/example.com. \
+  -u admin:password
+```
+
+### 6) Web UI (HTTPS)
+- Open `https://localhost:8443/`
+- Login with the superuser you created
+- Try: Records list, add/edit/delete record, DNS query form, users list (admin only)
+
+### 7) Upstream Forwarding
+- Query a domain that is not in local records, e.g. `google.com`
+- It should resolve via upstream servers and return a response
+
+## Postman Collection (HTTPS)
+
+Import: `docs/postman_collection_https.json`
+
+Postman setup:
+- Disable SSL certificate verification (self-signed cert).
+- Set collection variables: `baseUrl`, `adminUser`, `adminPass`.
+- For DoH binary request, set `dnsQueryBase64` to a base64 DNS query.
+
 ## Implementation Status
 
 **Core Features: ~95% Complete**
@@ -204,4 +303,3 @@ backend/
 - **Redis is required** for DNS caching functionality
 - Cached records automatically expire based on their TTL values
 - Manual records (admin-added) are stored in the database and never expire
-

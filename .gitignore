@@ -77,3 +77,7 @@ Thumbs.db
 
 
 notes.txt
+backend/certs/
+*.key
+*.crt
+*.pem

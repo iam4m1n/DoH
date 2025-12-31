@@ -1,0 +1,165 @@
+{
+  "info": {
+    "name": "DoH System (HTTPS)",
+    "_postman_id": "f0a6a3b4-6a2d-4e3b-8b8d-8d8f2e6a1b5d",
+    "description": "HTTPS requests for DoH API and admin endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "DoH GET (dns-json)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/dns-json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/dns-query?name={{domain}}&type={{recordType}}"
+      }
+    },
+    {
+      "name": "DoH POST (dns-json)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/dns-json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\":\"{{domain}}\",\"type\":\"{{recordType}}\"}"
+        },
+        "url": "{{baseUrl}}/api/v1/dns-query"
+      }
+    },
+    {
+      "name": "DoH GET (dns-message)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/dns-message"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/dns-query?dns={{dnsQueryBase64}}"
+      }
+    },
+    {
+      "name": "Admin - Add Record",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPass}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"domain\":\"{{recordDomain}}\",\"record_type\":\"{{recordType}}\",\"value\":\"{{recordValue}}\",\"ttl\":{{recordTtl}}}"
+        },
+        "url": "{{baseUrl}}/api/v1/admin/record"
+      }
+    },
+    {
+      "name": "Admin - List Records",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPass}}"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/v1/admin/records"
+      }
+    },
+    {
+      "name": "Admin - Delete Record",
+      "request": {
+        "method": "DELETE",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "{{adminUser}}"
+            },
+            {
+              "key": "password",
+              "value": "{{adminPass}}"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/v1/admin/record/{{deleteDomain}}"
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://localhost:8443"
+    },
+    {
+      "key": "domain",
+      "value": "example.com"
+    },
+    {
+      "key": "recordType",
+      "value": "A"
+    },
+    {
+      "key": "dnsQueryBase64",
+      "value": ""
+    },
+    {
+      "key": "adminUser",
+      "value": "admin"
+    },
+    {
+      "key": "adminPass",
+      "value": "password"
+    },
+    {
+      "key": "recordDomain",
+      "value": "example.com."
+    },
+    {
+      "key": "recordValue",
+      "value": "192.168.1.1"
+    },
+    {
+      "key": "recordTtl",
+      "value": "3600"
+    },
+    {
+      "key": "deleteDomain",
+      "value": "example.com."
+    }
+  ]
+}
