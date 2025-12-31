@@ -1,0 +1,95 @@
+{% extends 'records/base.html' %}
+
+{% block title %}Users - DNS Management{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h2 class="card-header" style="margin: 0;">👥 User Management</h2>
+        <a href="{% url 'add_user_view' %}" class="btn btn-primary">Add New User</a>
+    </div>
+</div>
+
+{% if admin_users %}
+<div class="card">
+    <h2 class="card-header">🔐 Admin Users</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Date Joined</th>
+                <th>Last Login</th>
+                <th>Status</th>
+                {% if is_admin %}
+                <th>Actions</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in admin_users %}
+            <tr>
+                <td><strong>{{ user.username }}</strong></td>
+                <td>{{ user.email|default:"-" }}</td>
+                <td>{{ user.date_joined|date:"Y-m-d H:i" }}</td>
+                <td>{{ user.last_login|date:"Y-m-d H:i"|default:"Never" }}</td>
+                <td><span class="badge-record badge-manual">Admin</span></td>
+                {% if is_admin %}
+                <td>
+                    {% if user.id != request.user.id %}
+                    <a href="{% url 'delete_user' user.id %}" class="btn btn-danger" style="padding: 0.25rem 0.75rem; font-size: 0.85rem;">Delete</a>
+                    {% else %}
+                    <span style="color: #666; font-size: 0.85rem;">Current User</span>
+                    {% endif %}
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if normal_users %}
+<div class="card">
+    <h2 class="card-header">👤 Normal Users (Read-Only)</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Date Joined</th>
+                <th>Last Login</th>
+                <th>Status</th>
+                {% if is_admin %}
+                <th>Actions</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in normal_users %}
+            <tr>
+                <td><strong>{{ user.username }}</strong></td>
+                <td>{{ user.email|default:"-" }}</td>
+                <td>{{ user.date_joined|date:"Y-m-d H:i" }}</td>
+                <td>{{ user.last_login|date:"Y-m-d H:i"|default:"Never" }}</td>
+                <td><span class="badge-record badge-cached">User</span></td>
+                {% if is_admin %}
+                <td>
+                    <a href="{% url 'delete_user' user.id %}" class="btn btn-danger" style="padding: 0.25rem 0.75rem; font-size: 0.85rem;">Delete</a>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if not admin_users and not normal_users %}
+<div class="card">
+    <p>No users found. <a href="{% url 'add_user_view' %}">Add a user</a> to get started.</p>
+</div>
+{% endif %}
+{% endblock %}
+

@@ -273,6 +273,7 @@
                 <a href="{% url 'records_list' %}">Records</a>
                 {% if is_admin %}
                 <a href="{% url 'add_record_view' %}">Add Record</a>
+                <a href="{% url 'users_list' %}">Users</a>
                 {% endif %}
                 <div class="user-info">
                     <span class="badge">{{ user.username }}</span>

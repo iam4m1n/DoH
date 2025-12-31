@@ -17,4 +17,8 @@ urlpatterns = [
     path('records/add/', views.add_record_view, name='add_record_view'),
     path('records/<int:record_id>/edit/', views.edit_record_view, name='edit_record'),
     path('records/<int:record_id>/delete/', views.delete_record_view, name='delete_record'),
+    # User management (admin only)
+    path('users/', views.users_list, name='users_list'),
+    path('users/add/', views.add_user_view, name='add_user_view'),
+    path('users/<int:user_id>/delete/', views.delete_user_view, name='delete_user'),
 ]

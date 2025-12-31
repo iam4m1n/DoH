@@ -3,6 +3,7 @@ import binascii
 import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout
+from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse, HttpResponseRedirect
@@ -17,7 +18,7 @@ from dns_core.packet import TYPE_CODE, TYPE_MAP
 from .models import DNSRecord
 from .serializers import DNSRecordSerializer
 from .renderers import DNSJsonRenderer, DNSMessageRenderer
-from .forms import DNSRecordForm, DNSQueryForm, LoginForm
+from .forms import DNSRecordForm, DNSQueryForm, LoginForm, UserCreateForm
 
 @api_view(['GET', 'POST'])
 @renderer_classes([DNSJsonRenderer, DNSMessageRenderer])
@@ -299,3 +300,66 @@ def delete_record_view(request, record_id):
         'is_admin': True,
     }
     return render(request, 'records/delete_record.html', context)
+
+@login_required
+@user_passes_test(is_admin)
+def users_list(request):
+    """List all users (admin only)"""
+    users = User.objects.all().order_by('-date_joined')
+    
+    # Separate admins and normal users
+    admin_users = users.filter(is_staff=True)
+    normal_users = users.filter(is_staff=False)
+    
+    context = {
+        'admin_users': admin_users,
+        'normal_users': normal_users,
+        'is_admin': True,
+    }
+    return render(request, 'records/users_list.html', context)
+
+@login_required
+@user_passes_test(is_admin)
+def add_user_view(request):
+    """Add normal user (admin only)"""
+    if request.method == 'POST':
+        form = UserCreateForm(request.POST)
+        if form.is_valid():
+            user = form.save(commit=False)
+            # Ensure new users are NOT staff (normal users only)
+            user.is_staff = False
+            user.is_superuser = False
+            user.save()
+            messages.success(request, f'User {user.username} created successfully!')
+            return redirect('users_list')
+    else:
+        form = UserCreateForm()
+    
+    context = {
+        'form': form,
+        'is_admin': True,
+    }
+    return render(request, 'records/add_user.html', context)
+
+@login_required
+@user_passes_test(is_admin)
+def delete_user_view(request, user_id):
+    """Delete user (admin only)"""
+    user = get_object_or_404(User, id=user_id)
+    
+    # Prevent deleting yourself
+    if user.id == request.user.id:
+        messages.error(request, 'You cannot delete your own account!')
+        return redirect('users_list')
+    
+    if request.method == 'POST':
+        username = user.username
+        user.delete()
+        messages.success(request, f'User {username} deleted successfully!')
+        return redirect('users_list')
+    
+    context = {
+        'user': user,
+        'is_admin': True,
+    }
+    return render(request, 'records/delete_user.html', context)
