@@ -12,7 +12,10 @@ class DNSRecordSerializer(serializers.ModelSerializer):
             "value",
             "ttl",
             "priority",
+            "cached_at",
+            "is_manual",
         ]
+        read_only_fields = ["cached_at", "is_manual"]
 
     def validate_domain(self, value):
         """

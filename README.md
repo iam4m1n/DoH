@@ -43,13 +43,27 @@ A DNS server implementation with DNS over HTTPS (DoH) support, local record mana
 pip install -r requirements.txt
 ```
 
-2. Run migrations:
+2. **Start Redis server** (required for DNS caching):
+```bash
+# On Ubuntu/Debian
+sudo apt-get install redis-server
+sudo systemctl start redis-server
+
+# On macOS
+brew install redis
+brew services start redis
+
+# Or run Redis in Docker
+docker run -d -p 6379:6379 redis:latest
+```
+
+3. Run migrations:
 ```bash
 cd backend
 python manage.py migrate
 ```
 
-3. Create a superuser (for admin access):
+4. Create a superuser (for admin access):
 ```bash
 python manage.py createsuperuser
 ```
@@ -72,12 +86,27 @@ python manage.py start_tcp_server
 
 ### Start Django Web Server (for DoH)
 
+**HTTP (Development):**
 ```bash
 cd backend
 python manage.py runserver
 ```
 
-The DoH endpoint will be available at: `http://localhost:8000/api/v1/dns-query`
+**HTTPS (with self-signed certificate):**
+```bash
+cd backend
+
+# First, generate SSL certificates (one-time setup)
+chmod +x generate_certificates.sh
+./generate_certificates.sh
+
+# Then start HTTPS server using gunicorn
+python manage.py runserver_https
+```
+
+The DoH endpoint will be available at:
+- HTTP: `http://localhost:8000/api/v1/dns-query` (use `python manage.py runserver`)
+- HTTPS: `https://localhost:8443/api/v1/dns-query` (⚠️ self-signed certificate)
 
 ### Testing DNS Queries
 
@@ -87,9 +116,21 @@ dig @localhost -p 8053 example.com
 dig @localhost -p 8053 example.com +tcp
 ```
 
-**Using curl (DoH - JSON):**
+**Using curl (DoH - JSON - HTTP):**
 ```bash
 curl "http://localhost:8000/api/v1/dns-query?name=example.com&type=A" \
+  -H "Accept: application/dns-json"
+```
+
+**Using curl (DoH - JSON - HTTPS with self-signed cert):**
+```bash
+# Skip certificate verification for self-signed cert
+curl -k "https://localhost:8443/api/v1/dns-query?name=example.com&type=A" \
+  -H "Accept: application/dns-json"
+
+# Or specify the certificate
+curl --cacert backend/certs/server.crt \
+  "https://localhost:8443/api/v1/dns-query?name=example.com&type=A" \
   -H "Accept: application/dns-json"
 ```
 
@@ -156,17 +197,20 @@ backend/
 - ✅ Support for A, AAAA, CNAME, MX, TXT, PTR, NS records
 
 **Optional/Bonus Features:**
-- ⚠️ Caching (not implemented)
+- ✅ Caching (Redis implemented)
 - ⚠️ Logging (not implemented)
 - ⚠️ Web UI (frontend/index.html is empty)
 - ⚠️ CLI tool (not implemented)
-- ⚠️ HTTPS with certificates (not implemented)
+- ✅ HTTPS with self-signed certificates (implemented)
 
 ## Notes
 
 - Domain names must end with a dot (.) in FQDN format
 - MX records require a priority value
 - Admin endpoints require authentication (use Django admin user)
-- The system checks local records first, then forwards to upstream DNS servers
+- The system checks Redis cache first, then manual records, then forwards to upstream DNS servers
+- **Redis is required** for DNS caching functionality
+- Cached records automatically expire based on their TTL values
+- Manual records (admin-added) are stored in the database and never expire
 
 

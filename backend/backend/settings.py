@@ -13,7 +13,12 @@ SECRET_KEY = 'django-insecure-qymye=(r!7#%d$o#=b_($d6&nlo25bl$fbgn-%=mcp1k#-de-e
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '*.localhost']
+
+# HTTPS Settings
+SECURE_SSL_REDIRECT = False  # Set to True in production with proper reverse proxy
+SESSION_COOKIE_SECURE = False  # Set to True in production
+CSRF_COOKIE_SECURE = False  # Set to True in production
 
 
 # Application definition
@@ -111,3 +116,8 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Redis configuration for DNS caching
+REDIS_HOST = 'localhost'
+REDIS_PORT = 6379
+REDIS_DB = 0

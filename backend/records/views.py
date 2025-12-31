@@ -85,8 +85,9 @@ def doh_query(request):
 def add_record(request):
     serializer = DNSRecordSerializer(data=request.data)
     if serializer.is_valid():
-        serializer.save()
-        return Response({"status": "ok"})
+        # Mark admin-added records as manual (they don't expire)
+        record = serializer.save(is_manual=True)
+        return Response({"status": "ok", "id": record.id})
     return Response(serializer.errors, status=400)
 
 @api_view(['GET'])
