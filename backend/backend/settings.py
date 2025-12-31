@@ -16,9 +16,10 @@ DEBUG = True
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '*.localhost']
 
 # HTTPS Settings
-SECURE_SSL_REDIRECT = False  # Set to True in production with proper reverse proxy
-SESSION_COOKIE_SECURE = False  # Set to True in production
-CSRF_COOKIE_SECURE = False  # Set to True in production
+SECURE_SSL_REDIRECT = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 
 # Application definition

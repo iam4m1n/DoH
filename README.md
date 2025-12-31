@@ -70,7 +70,23 @@ python manage.py createsuperuser
 
 ## Usage
 
-### Start DNS Servers
+### One Command (UDP + TCP + HTTPS DoH)
+
+```bash
+cd backend
+
+# First, generate SSL certificates (one-time setup)
+chmod +x generate_certificates.sh
+./generate_certificates.sh
+
+# Run everything together
+python manage.py run_all
+```
+
+The DoH endpoint will be available at:
+- HTTPS: `https://localhost:8443/api/v1/dns-query` (⚠️ self-signed certificate)
+
+### Run Separately (optional)
 
 **UDP Server:**
 ```bash
@@ -84,29 +100,11 @@ cd backend
 python manage.py start_tcp_server
 ```
 
-### Start Django Web Server (for DoH)
-
-**HTTP (Development):**
-```bash
-cd backend
-python manage.py runserver
-```
-
 **HTTPS (with self-signed certificate):**
 ```bash
 cd backend
-
-# First, generate SSL certificates (one-time setup)
-chmod +x generate_certificates.sh
-./generate_certificates.sh
-
-# Then start HTTPS server using gunicorn
 python manage.py runserver_https
 ```
-
-The DoH endpoint will be available at:
-- HTTP: `http://localhost:8000/api/v1/dns-query` (use `python manage.py runserver`)
-- HTTPS: `https://localhost:8443/api/v1/dns-query` (⚠️ self-signed certificate)
 
 ### Testing DNS Queries
 
@@ -114,12 +112,6 @@ The DoH endpoint will be available at:
 ```bash
 dig @localhost -p 8053 example.com
 dig @localhost -p 8053 example.com +tcp
-```
-
-**Using curl (DoH - JSON - HTTP):**
-```bash
-curl "http://localhost:8000/api/v1/dns-query?name=example.com&type=A" \
-  -H "Accept: application/dns-json"
 ```
 
 **Using curl (DoH - JSON - HTTPS with self-signed cert):**
@@ -134,17 +126,17 @@ curl --cacert backend/certs/server.crt \
   -H "Accept: application/dns-json"
 ```
 
-**Using curl (DoH - Binary):**
+**Using curl (DoH - Binary - HTTPS):**
 ```bash
 # First, create a DNS query (requires base64 encoding)
-curl "http://localhost:8000/api/v1/dns-query?dns=<base64-encoded-dns-query>"
+curl -k "https://localhost:8443/api/v1/dns-query?dns=<base64-encoded-dns-query>"
 ```
 
 ### Managing Records
 
-**Add a record:**
+**Add a record (HTTPS only):**
 ```bash
-curl -X POST http://localhost:8000/api/v1/admin/record \
+curl -k -X POST https://localhost:8443/api/v1/admin/record \
   -H "Content-Type: application/json" \
   -u admin:password \
   -d '{
@@ -155,15 +147,15 @@ curl -X POST http://localhost:8000/api/v1/admin/record \
   }'
 ```
 
-**List records:**
+**List records (HTTPS only):**
 ```bash
-curl http://localhost:8000/api/v1/admin/records \
+curl -k https://localhost:8443/api/v1/admin/records \
   -u admin:password
 ```
 
-**Delete a record:**
+**Delete a record (HTTPS only):**
 ```bash
-curl -X DELETE http://localhost:8000/api/v1/admin/record/example.com. \
+curl -k -X DELETE https://localhost:8443/api/v1/admin/record/example.com. \
   -u admin:password
 ```
 
@@ -212,5 +204,4 @@ backend/
 - **Redis is required** for DNS caching functionality
 - Cached records automatically expire based on their TTL values
 - Manual records (admin-added) are stored in the database and never expire
-
 
