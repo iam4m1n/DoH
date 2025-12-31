@@ -4,7 +4,7 @@ A DNS server implementation with DNS over HTTPS (DoH) support, local record mana
 
 ## Implementation Brief
 
-This project delivers a DNS server (UDP/TCP), a DoH HTTPS API, record management with authentication, caching, logging, and a Web UI for admin and normal users.
+This project delivers a DNS server (UDP/TCP), a DoH HTTPS API, record management with authentication, caching, logging, and a Web UI for admin and normal users. The optional CLI tool is not implemented.
 
 ## Features
 
@@ -205,6 +205,7 @@ Bonus:
 - Support for TXT/PTR/NS records.
 - Caching (Redis) and logging.
 - Web UI for records, users, and DNS queries.
+- CLI testing tool: not implemented.
 
 ## Testing Checklist (HTTPS Only)
 
@@ -277,7 +278,7 @@ Postman setup:
 
 ## Implementation Status
 
-**Core Features: ~95% Complete**
+**Core Features: 100% Complete**
 - ✅ DNS packet parsing and building
 - ✅ UDP/TCP DNS servers
 - ✅ DoH endpoint (GET/POST, binary/JSON)
@@ -289,8 +290,8 @@ Postman setup:
 
 **Optional/Bonus Features:**
 - ✅ Caching (Redis implemented)
-- ⚠️ Logging (not implemented)
-- ⚠️ Web UI (frontend/index.html is empty)
+- ✅ Logging (implemented)
+- ✅ Web UI (django templates)
 - ⚠️ CLI tool (not implemented)
 - ✅ HTTPS with self-signed certificates (implemented)
 
